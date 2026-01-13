@@ -6,7 +6,13 @@ Aplicación full-stack (React + Express) para gestión y documentación de clase
 - Frontend: React + Vite + Tailwind
 - Backend: Node.js + Express
 - Auth: Passport Local + Sessions
-- DB: (define aquí: Postgres / SQLite) + (Prisma o Drizzle)
+- ## Base de datos
+
+Este proyecto usa SQLite en modo archivo local para facilitar demos y pruebas.
+
+El archivo se crea automáticamente en: ./dev.db
+
+
 
 ## Requisitos
 - Node.js 18+ (recomendado 20)
