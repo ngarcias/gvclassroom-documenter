@@ -19,6 +19,15 @@ El archivo se crea automáticamente en: ./dev.db
 - (Si aplica) PostgreSQL
 
 ## Instalación
-```bash
-npm install
+
+1. Clonar el repositorio
+2. Crear archivo `.env` desde `.env.example`
+3. Ejecutar:
+
+npm install  
+npm run dev  
+
+4. Abrir en el navegador:
+
+http://localhost:5000
 
