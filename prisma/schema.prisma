@@ -1,0 +1,275 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  SUPER_ADMIN
+  SOPORTE
+  PROFESOR
+  ALUMNO
+  VISUALIZADOR
+}
+
+enum ClassStatus {
+  ACTIVA
+  DESACTIVADA
+  CANCELADA
+  COMPLETADA
+}
+
+enum AttendanceType {
+  AUTO
+  MANUAL
+}
+
+enum AttendanceStatus {
+  PRESENTE
+  AUSENTE
+  TARDANZA
+  JUSTIFICADO
+}
+
+enum DeviceStatus {
+  CONECTADO
+  DESCONECTADO
+  ADVERTENCIA
+}
+
+enum ResolutionStatus {
+  PENDIENTE
+  EN_PROCESO
+  RESUELTO
+}
+
+model Sede {
+  id        String   @id @default(uuid())
+  codigo    String   @unique
+  nombre    String
+  timezone  String   @default("America/Santiago")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  salas        Sala[]
+  usuarios     Usuario[]
+  dispositivos Dispositivo[]
+}
+
+model Sala {
+  id        String   @id @default(uuid())
+  codigo    String
+  nombre    String
+  sedeId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sede         Sede          @relation(fields: [sedeId], references: [id])
+  clases       Clase[]
+  dispositivos Dispositivo[]
+
+  @@unique([codigo, sedeId])
+}
+
+model Permiso {
+  id          String   @id @default(uuid())
+  codigo      String   @unique
+  nombre      String
+  modulo      String
+  descripcion String?
+  createdAt   DateTime @default(now())
+
+  perfilPermisos PerfilPermiso[]
+}
+
+model Perfil {
+  id          String   @id @default(uuid())
+  nombre      String   @unique
+  descripcion String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  usuarios       Usuario[]
+  perfilPermisos PerfilPermiso[]
+}
+
+model PerfilPermiso {
+  id        String   @id @default(uuid())
+  perfilId  String
+  permisoId String
+  createdAt DateTime @default(now())
+
+  perfil  Perfil  @relation(fields: [perfilId], references: [id], onDelete: Cascade)
+  permiso Permiso @relation(fields: [permisoId], references: [id], onDelete: Cascade)
+
+  @@unique([perfilId, permisoId])
+}
+
+model Usuario {
+  id        String   @id @default(uuid())
+  rut       String   @unique
+  nombre    String
+  email     String?  @unique
+  password  String
+  tipo      Role     @default(ALUMNO)
+  perfilId  String?
+  sedeId    String?
+  timezone  String   @default("America/Santiago")
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  perfil         Perfil?        @relation(fields: [perfilId], references: [id])
+  sede           Sede?          @relation(fields: [sedeId], references: [id])
+  clasesProfesor Clase[]        @relation("ProfesorClases")
+  inscripciones  Inscripcion[]
+  marcajes       Marcaje[]
+  reportesError  ReporteError[]
+  historialDispositivos HistorialDispositivo[] @relation("HistorialActor")
+  auditLogs      AuditLog[]     @relation("AuditLogActor")
+}
+
+model Clase {
+  id         String      @id @default(uuid())
+  codigo     String
+  asignatura String
+  profesorId String
+  salaId     String
+  fecha      DateTime
+  horaInicio String
+  horaFin    String
+  estado     ClassStatus @default(ACTIVA)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  profesor      Usuario       @relation("ProfesorClases", fields: [profesorId], references: [id])
+  sala          Sala          @relation(fields: [salaId], references: [id])
+  inscripciones Inscripcion[]
+  marcajes      Marcaje[]
+
+  @@index([profesorId, fecha])
+  @@index([salaId, fecha])
+}
+
+model Inscripcion {
+  id        String   @id @default(uuid())
+  claseId   String
+  alumnoId  String
+  createdAt DateTime @default(now())
+
+  clase  Clase   @relation(fields: [claseId], references: [id])
+  alumno Usuario @relation(fields: [alumnoId], references: [id])
+
+  @@unique([claseId, alumnoId])
+}
+
+model Marcaje {
+  id            String           @id @default(uuid())
+  claseId       String
+  alumnoId      String
+  dispositivoId String?
+  fechaHora     DateTime         @default(now())
+  estado        AttendanceStatus
+  tipoMarcaje   AttendanceType   @default(AUTO)
+  modificadoPor String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  clase       Clase        @relation(fields: [claseId], references: [id])
+  alumno      Usuario      @relation(fields: [alumnoId], references: [id])
+  dispositivo Dispositivo? @relation(fields: [dispositivoId], references: [id])
+
+  @@index([claseId])
+  @@index([alumnoId])
+  @@index([dispositivoId])
+}
+
+model Dispositivo {
+  id             String       @id @default(uuid())
+  serialNumber   String       @unique
+  tipo           String
+  salaId         String?
+  sedeId         String?
+  versionApp     String?
+  bateria        Int?
+  estadoConexion DeviceStatus @default(DESCONECTADO)
+  ultimaConexion DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  sala        Sala?                   @relation(fields: [salaId], references: [id])
+  sede        Sede?                   @relation(fields: [sedeId], references: [id])
+  incidencias IncidenciaDispositivo[]
+  historial   HistorialDispositivo[]
+  marcajes    Marcaje[]
+}
+
+model IncidenciaDispositivo {
+  id               String           @id @default(uuid())
+  dispositivoId    String
+  tipoIncidencia   String
+  descripcion      String?
+  sedeOriginal     String?
+  salaOriginal     String?
+  sedeHomologada   String?
+  salaHomologada   String?
+  estadoResolucion ResolutionStatus @default(PENDIENTE)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  dispositivo Dispositivo @relation(fields: [dispositivoId], references: [id])
+}
+
+model ReporteError {
+  id         String           @id @default(uuid())
+  profesorId String
+  salaId     String?
+  sedeId     String?
+  fecha      DateTime
+  comentario String
+  estado     ResolutionStatus @default(PENDIENTE)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  profesor Usuario @relation(fields: [profesorId], references: [id])
+}
+
+model HistorialDispositivo {
+  id            String   @id @default(uuid())
+  dispositivoId String
+  accion        String
+  descripcion   String?
+  sedeAnterior  String?
+  salaAnterior  String?
+  sedeNueva     String?
+  salaNueva     String?
+  estadoAnterior String?
+  estadoNuevo    String?
+  actorId       String?
+  createdAt     DateTime @default(now())
+
+  dispositivo Dispositivo @relation(fields: [dispositivoId], references: [id])
+  actor       Usuario?    @relation("HistorialActor", fields: [actorId], references: [id])
+
+  @@index([dispositivoId])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  action    String
+  entity    String
+  entityId  String
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now())
+
+  actor Usuario @relation("AuditLogActor", fields: [actorId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+}
